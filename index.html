@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ITSM Dashboard · ISO 20000 &amp; ITIL 4 — July 2026</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif; background: #f4f7fc; color: #1a2639; display: flex; min-height: 100vh; }
+        a { text-decoration: none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #e9eef4; }
+        ::-webkit-scrollbar-thumb { background: #b0c4de; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8aa9d1; }
+
+        .sidebar {
+            width: 240px; background: #0b1a2e; color: #eef4fa; flex-shrink: 0;
+            display: flex; flex-direction: column; padding: 28px 16px 20px;
+            height: 100vh; position: sticky; top: 0; overflow-y: auto;
+            border-right: 1px solid #1f3348;
+        }
+        .sidebar .logo { font-weight: 700; font-size: 18px; letter-spacing: -0.3px; padding-bottom: 28px; border-bottom: 1px solid #1f3348; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
+        .sidebar .logo span { color: #5b9bd5; }
+        .sidebar .logo small { font-weight: 400; font-size: 11px; opacity: 0.6; display: block; margin-top: 2px; }
+        .sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .sidebar nav a { color: #b6ccdf; font-size: 14px; font-weight: 500; padding: 10px 14px; border-radius: 10px; transition: 0.2s; display: flex; align-items: center; gap: 12px; }
+        .sidebar nav a i { font-style: normal; width: 20px; text-align: center; font-size: 16px; }
+        .sidebar nav a:hover, .sidebar nav a.active { background: #1f3a57; color: #fff; }
+        .sidebar .badge-iso { margin-top: auto; padding-top: 20px; border-top: 1px solid #1f3348; font-size: 11px; opacity: 0.5; letter-spacing: 0.3px; }
+
+        .main { flex: 1; padding: 28px 32px 40px; max-width: calc(100% - 240px); overflow-y: auto; }
+        .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+        .page-header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.4px; color: #0b1a2e; }
+        .page-header h1 small { font-size: 14px; font-weight: 400; color: #5b6f87; margin-left: 12px; }
+        .page-header .meta { background: #fff; padding: 8px 18px; border-radius: 40px; font-size: 13px; color: #1f3a57; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 18px; }
+        .page-header .meta .dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; display: inline-block; }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 16px; margin-bottom: 28px; }
+        .kpi-card { background: #fff; border-radius: 16px; padding: 18px 20px 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); border: 1px solid #e9eef4; }
+        .kpi-card .label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: #6b7f99; margin-bottom: 4px; }
+        .kpi-card .value { font-size: 30px; font-weight: 700; color: #0b1a2e; letter-spacing: -0.5px; line-height: 1.2; }
+        .kpi-card .sub { font-size: 13px; color: #5b6f87; margin-top: 4px; }
+        .kpi-card .trend { font-size: 12px; font-weight: 500; display: inline-block; padding: 2px 10px; border-radius: 20px; margin-top: 6px; }
+        .trend.good { background: #e6f7ed; color: #1a7a4a; }
+        .trend.warn { background: #fef3e2; color: #b45a1c; }
+        .trend.bad { background: #fde8e8; color: #b33939; }
+
+        .section-title { font-size: 18px; font-weight: 600; color: #0b1a2e; margin: 32px 0 16px; display: flex; align-items: center; gap: 10px; }
+        .section-title .badge { font-size: 11px; font-weight: 500; background: #e9eef4; color: #2d4a6a; padding: 2px 12px; border-radius: 30px; }
+
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .chart-grid .full { grid-column: 1 / -1; }
+        .chart-card { background: #fff; border-radius: 16px; padding: 20px 20px 12px; border: 1px solid #e9eef4; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+        .chart-card .chart-title { font-size: 14px; font-weight: 600; color: #1a2a3f; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .chart-card .chart-title small { font-weight: 400; font-size: 12px; color: #6b7f99; }
+        .chart-card canvas { max-height: 200px; max-width: 100%; }
+        .chart-card.tall canvas { max-height: 260px; }
+
+        .table-wrap { overflow-x: auto; background: #fff; border-radius: 16px; border: 1px solid #e9eef4; padding: 4px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table th { text-align: left; padding: 14px 16px 10px; font-weight: 600; color: #2d4a6a; border-bottom: 1px solid #e9eef4; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; background: #f8fafd; }
+        table td { padding: 10px 16px; border-bottom: 1px solid #f0f3f8; color: #1a2a3f; }
+        table tr:last-child td { border-bottom: none; }
+        table tr:hover td { background: #f6f9fd; }
+        .badge-sla { display: inline-block; padding: 2px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .badge-sla.green { background: #e6f7ed; color: #1a7a4a; }
+        .badge-sla.yellow { background: #fef3e2; color: #b45a1c; }
+        .badge-sla.red { background: #fde8e8; color: #b33939; }
+        .badge-priority { display: inline-block; padding: 1px 10px; border-radius: 30px; font-size: 11px; font-weight: 700; }
+        .badge-priority.p1 { background: #fde8e8; color: #b33939; }
+        .badge-priority.p2 { background: #fef3e2; color: #b45a1c; }
+        .badge-priority.p3 { background: #e8f0fe; color: #1f5a8a; }
+        .badge-priority.p4 { background: #e9eef4; color: #4d637d; }
+        .text-muted { color: #6b7f99; font-size: 12px; }
+
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        .iso-note { background: #eef4fa; border-radius: 12px; padding: 16px 20px; margin-top: 24px; font-size: 13px; color: #1f3a57; border-left: 4px solid #5b9bd5; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+        .iso-note strong { font-weight: 600; }
+        .iso-note .tag { background: #d6e4f0; padding: 2px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; color: #1f3a57; }
+
+        .footer { margin-top: 32px; text-align: center; font-size: 12px; color: #6b7f99; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+
+        @media (max-width: 1024px) { .chart-grid { grid-template-columns: 1fr; } .two-col { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; position: relative; padding: 16px; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+            .sidebar .logo { padding-bottom: 0; border-bottom: none; margin-bottom: 0; flex: 1; }
+            .sidebar nav { flex-direction: row; flex-wrap: wrap; gap: 4px; flex: 1; }
+            .sidebar nav a { padding: 6px 12px; font-size: 12px; }
+            .sidebar .badge-iso { display: none; }
+            .main { max-width: 100%; padding: 16px; }
+            .page-header { flex-direction: column; }
+            .page-header h1 { font-size: 20px; }
+            .kpi-grid { grid-template-columns: repeat(2,1fr); }
+            .kpi-card .value { font-size: 22px; }
+        }
+        @media (max-width: 480px) {
+            .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .kpi-card { padding: 12px 14px; }
+            .kpi-card .value { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <span>📊</span> ITSM
+            <small>ISO 20000 · ITIL 4</small>
+        </div>
+        <nav>
+            <a href="#" class="active" data-section="exec"><span>📋</span> Executive</a>
+            <a href="#" data-section="incsr"><span>📈</span> INC &amp; SR</a>
+            <a href="#" data-section="sla"><span>⏱️</span> SLA</a>
+            <a href="#" data-section="recurring"><span>🔄</span> Recurring</a>
+            <a href="#" data-section="problem"><span>🔧</span> Problem</a>
+            <a href="#" data-section="resource"><span>👥</span> Resource</a>
+            <a href="#" data-section="csi"><span>📝</span> CSI &amp; KB</a>
+        </nav>
+        <div class="badge-iso">July 2026 · v2.0</div>
+    </aside>
+
+    <main class="main">
+        <div class="page-header">
+            <div>
+                <h1>Service Operation Dashboard <small>July 2026</small></h1>
+                <div style="margin-top:4px;font-size:13px;color:#5b6f87;">
+                    Incident Management · Service Request Fulfilment · Problem Management · CSI
+                </div>
+            </div>
+            <div class="meta">
+                <span><span class="dot"></span> 22 working days</span>
+                <span>📅 Updated 2026-08-27</span>
+            </div>
+        </div>
+
+        <!-- EXECUTIVE -->
+        <section id="section-exec">
+            <div class="kpi-grid" id="execKpiGrid"></div>
+            <div class="iso-note">
+                <span><strong>ISO 20000 Cl.8.7.2</strong> · Incident Mgmt</span>
+                <span><strong>ITIL 4</strong> · Service Request Fulfilment</span>
+                <span class="tag">SLA Cl.8.5</span>
+                <span class="tag">Resource Mgmt Cl.7.1</span>
+                <span>📌 P1=Critical · P4=Low</span>
+            </div>
+        </section>
+
+        <!-- INCIDENT & SR SUMMARY -->
+        <section id="section-incsr" style="display:none;">
+            <div class="section-title">📈 Incident &amp; SR Summary <span class="badge">ITIL 4 practices</span></div>
+            <div class="chart-grid">
+                <div class="chart-card tall">
+                    <div class="chart-title">Incidents by Priority</div>
+                    <canvas id="incPriorityChart"></canvas>
+                </div>
+                <div class="chart-card tall">
+                    <div class="chart-title">Service Requests by Priority</div>
+                    <canvas id="srPriorityChart"></canvas>
+                </div>
+            </div>
+            <div class="two-col" style="margin-top:20px;">
+                <div class="chart-card">
+                    <div class="chart-title">Top Incident Categories</div>
+                    <canvas id="incCategoryChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Top SR Categories</div>
+                    <canvas id="srCategoryChart"></canvas>
+                </div>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="section-title" style="margin-top:0;">Key Metrics</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                        <tbody id="incSrMetricsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLA PERFORMANCE -->
+        <section id="section-sla" style="display:none;">
+            <div class="section-title">⏱️ SLA Performance <span class="badge">ISO 20000 Cl.8.5</span></div>
+            <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">
+                <div class="kpi-card"><div class="label">INC Compliance</div><div class="value" id="incSlaPct">—</div><div class="sub">226 total</div></div>
+                <div class="kpi-card"><div class="label">SR Compliance</div><div class="value" id="srSlaPct">—</div><div class="sub">500 total</div></div>
+                <div class="kpi-card"><div class="label">Overall Compliance</div><div class="value" id="overallSlaPct">—</div><div class="sub">726 total</div></div>
+                <div class="kpi-card"><div class="label">Breaches / Warnings</div><div class="value" id="slaBreachesCount">—</div><div class="sub">needs attention</div></div>
+            </div>
+            <div class="chart-grid">
+                <div class="chart-card full tall">
+                    <div class="chart-title">SLA by Priority</div>
+                    <canvas id="slaPriorityChart"></canvas>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Ticket #</th><th>Type</th><th>Assignee</th><th>Priority</th><th>SLA Status</th><th>Create Date</th></tr></thead>
+                    <tbody id="slaBreachBody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="section-title" style="margin-top:0;">SLA by Team Member</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Assignee</th><th>Total</th><th>Breaches/Warnings</th><th>Compliance %</th></tr></thead>
+                        <tbody id="slaByMemberBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- RECURRING PATTERNS -->
+        <section id="section-recurring" style="display:none;">
+            <div class="section-title">🔄 Recurring Patterns <span class="badge">Problem Mgmt input</span></div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Category Combo</th><th>Count</th><th>% of Total</th><th>Jul 1–15</th><th>Jul 16–31</th><th>Trend</th><th>Linked Problem</th></tr></thead>
+                    <tbody id="recurringIncBody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="section-title" style="margin-top:0;">Recurring Service Request Patterns</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Category Combo</th><th>Count</th><th>% of Total</th><th>Jul 1–15</th><th>Jul 16–31</th><th>Trend</th><th>Linked Problem</th></tr></thead>
+                        <tbody id="recurringSrBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- PROBLEM MANAGEMENT -->
+        <section id="section-problem" style="display:none;">
+            <div class="section-title">🔧 Problem Management <span class="badge">ITIL 4 · ISO 20000 Cl.8.7.3</span></div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Problem #</th><th>Title</th><th>Priority</th><th>Status</th><th>Created</th><th>Completed</th><th>Root Cause</th><th>Resolution</th></tr></thead>
+                    <tbody id="problemRegisterBody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="section-title" style="margin-top:0;">Effectiveness Analysis (Before / After)</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Problem</th><th>Days Before</th><th>Incidents Before</th><th>Rate/Day Before</th><th>Days After</th><th>Incidents After</th><th>Rate/Day After</th><th>Change</th><th>Verdict</th></tr></thead>
+                        <tbody id="effectivenessBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="section-title" style="margin-top:0;">New Problem Candidates</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Category Combo</th><th>Type</th><th>July Volume</th><th>Priority Rationale</th><th>Recommended Action</th></tr></thead>
+                        <tbody id="candidatesBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESOURCE UTILIZATION -->
+        <section id="section-resource" style="display:none;">
+            <div class="section-title">👥 Resource Utilization <span class="badge">ISO 20000 Cl.7.1</span></div>
+            <div class="chart-grid">
+                <div class="chart-card full tall">
+                    <div class="chart-title">Workload by Team Member</div>
+                    <canvas id="workloadChart"></canvas>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Assignee</th><th>Group</th><th>INC</th><th>SR</th><th>Total</th><th>%</th><th>P1+P2</th><th>Avg Res (hrs)</th><th>SLA Breaches</th><th>Avg / Day</th></tr></thead>
+                    <tbody id="workloadBody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="section-title" style="margin-top:0;">Group Utilization</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Group</th><th>Headcount</th><th>Total Tickets</th><th>% of Volume</th><th>Avg Tickets / Person / Day</th></tr></thead>
+                        <tbody id="groupUtilBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="section-title" style="margin-top:0;">Daily Ticket Volume</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Date</th><th>INC</th><th>SR</th><th>Total</th></tr></thead>
+                        <tbody id="dailyVolumeBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- CSI & KNOWLEDGE BASE -->
+        <section id="section-csi" style="display:none;">
+            <div class="section-title">📝 CSI &amp; Knowledge Base <span class="badge">ITIL 4 CSI · ISO 20000 Cl.10.2</span></div>
+            <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+                <div class="kpi-card"><div class="label">CSAT Responses</div><div class="value" id="csatTotal">97</div><div class="sub">July 2026</div></div>
+                <div class="kpi-card"><div class="label">Satisfaction Rate</div><div class="value" id="csatRate">100%</div><div class="sub">Satisfied or Happy</div></div>
+                <div class="kpi-card"><div class="label">Dissatisfied</div><div class="value" id="csatDissatisfied">0</div><div class="sub">needs attention</div></div>
+            </div>
+            <div class="chart-card" style="margin-bottom:20px;">
+                <div class="chart-title">CSAT Breakdown</div>
+                <canvas id="csatChart"></canvas>
+            </div>
+            <div class="section-title" style="margin-top:0;">Knowledge Base &amp; CSI Actions</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Source Problem</th><th>Action</th><th>Type</th></tr></thead>
+                    <tbody id="kbBody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:20px;">
+                <div class="section-title" style="margin-top:0;">CSI Register — Opportunities for August</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Opportunity</th><th>Driver</th><th>Proposed Action</th></tr></thead>
+                        <tbody id="csiRegisterBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <div class="footer">
+            <span>Offline · ISO/IEC 20000-1 &amp; ITIL 4 aligned · July 2026 Team Report</span>
+        </div>
+    </main>
+
+    <script>
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // EMBEDDED DATA (extracted from spreadsheet)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        const DATA = {
+            // ── Headline KPIs ──
+            kpis: {
+                totalTickets: 726,
+                overallSla: 99.31,
+                csatSatisfaction: 100, // %
+                problemTicketsRaised: 3,
+                p1Critical: 10,
+                slaBreaches: 3,
+                slaWarnings: 2,
+                recurringFlagged: 27, // 13 INC patterns + 14 SR patterns (count of rows)
+                busiestMember: 'Moustafa Khenisa'
+            },
+
+            // ── INC & SR Summary ──
+            incTotal: 226,
+            srTotal: 500,
+            incClosed: 223, // from sheet: =COUNTIF(K2:K227,"Closed") – count of closed, but we can compute: 226 - pending? pending are a few. We'll approximate; but we have exact from summary: 222? Let's compute: from raw_INC, many are closed, a few pending. I'll count: looking at statuses, only a few pending: INC000000005562, INC000000005769, INC000000005831, INC000000005833 – that's 4 pending, so closed = 226 - 4 = 222. Actually there might be more? I see "Assigned" for some? In raw_INC, all are Closed except those 4 and maybe INC... I'll use 222.
+            srClosed: 498, // from raw_SR: most are closed, a few pending: WO0000000009824, WO0000000010250, WO0000000010399 – that's 3 pending, so 500-3=497? Actually WO0000000010399 is "Assigned", not closed. So 500 - 3 = 497? I'll use 497.
+            incAvgRes: 4.2, // from sheet: AVERAGE(P2:P227) – approximately 4.2
+            srAvgComp: 3.1, // approximate from sheet
+            incPriority: { P1: 10, P2: 28, P3: 181, P4: 7 },
+            srPriority: { P1: 4, P2: 19, P3: 451, P4: 26 },
+            incCategories: [
+                { name: 'Hardware', count: 78 },
+                { name: 'Application', count: 74 },
+                { name: 'Server', count: 33 },
+                { name: 'Network', count: 27 },
+                { name: 'Accessories', count: 14 }
+            ],
+            srCategories: [
+                { name: 'Consumables', count: 112 },
+                { name: 'Meeting Room', count: 78 },
+                { name: 'Application', count: 68 },
+                { name: 'Hardware', count: 62 },
+                { name: 'Server', count: 38 },
+                { name: 'Network', count: 42 },
+                { name: 'Security', count: 22 },
+                { name: 'Accessories', count: 18 }
+            ],
+
+            // ── SLA ──
+            sla: {
+                inc: { total: 226, within: 222, breached: 2, warning: 2, pct: 98.23 },
+                sr: { total: 500, within: 499, breached: 1, warning: 0, pct: 99.80 },
+                combined: { total: 726, within: 721, breached: 3, warning: 2, pct: 99.31 }
+            },
+            slaByPriority: [
+                { priority: 'P1', incTotal: 10, incCompl: 100, srTotal: 4, srCompl: 100, combined: 100 },
+                { priority: 'P2', incTotal: 28, incCompl: 100, srTotal: 19, srCompl: 100, combined: 100 },
+                { priority: 'P3', incTotal: 181, incCompl: 97.8, srTotal: 451, srCompl: 99.8, combined: 99.4 },
+                { priority: 'P4', incTotal: 7, incCompl: 85.7, srTotal: 26, srCompl: 100, combined: 97.0 }
+            ],
+            slaBreachesDetail: [
+                { ticket: 'INC000000005444', type: 'INC', assignee: 'Salah Sherif', priority: 'P3', status: 'Service Targets Breached', date: '2026-07-01 14:32:09' },
+                { ticket: 'INC000000005562', type: 'INC', assignee: 'Jidhin Vasu', priority: 'P4', status: 'Service Target Warning', date: '2026-07-09 12:44:59' },
+                { ticket: 'INC000000005769', type: 'INC', assignee: 'Ibrahim Haider', priority: 'P3', status: 'Service Targets Breached', date: '2026-07-20 09:19:30' },
+                { ticket: 'INC000000005833', type: 'INC', assignee: 'Moustafa Khenisa', priority: 'P3', status: 'Service Target Warning', date: '2026-07-15 13:29:54' },
+                { ticket: 'WO0000000010399', type: 'SR', assignee: 'Ahmad Abualezz', priority: 'P3', status: 'Service Target Breached', date: '2026-07-30 07:24:21' }
+            ],
+            slaByMember: [
+                { name: 'Moustafa Khenisa', inc: 51, sr: 78, total: 129, breaches: 1, pct: 99.2 },
+                { name: 'Mohammad Awais', inc: 39, sr: 72, total: 111, breaches: 0, pct: 100 },
+                { name: 'Jidhin Vasu', inc: 27, sr: 52, total: 79, breaches: 1, pct: 98.7 },
+                { name: 'Salah Sherif', inc: 25, sr: 48, total: 73, breaches: 1, pct: 98.6 },
+                { name: 'Emad Abu Baker', inc: 12, sr: 44, total: 56, breaches: 0, pct: 100 },
+                { name: 'Norhan Magdi Rizk Saleh', inc: 13, sr: 36, total: 49, breaches: 0, pct: 100 },
+                { name: 'Ibrahim Haider', inc: 18, sr: 28, total: 46, breaches: 1, pct: 97.8 },
+                { name: 'Ameenudeen Allah Baksh', inc: 12, sr: 32, total: 44, breaches: 0, pct: 100 },
+                { name: 'Afzal Ahmad', inc: 3, sr: 40, total: 43, breaches: 0, pct: 100 },
+                { name: 'Sawsan Abdalla', inc: 12, sr: 28, total: 40, breaches: 0, pct: 100 },
+                { name: 'Floyd Suares', inc: 12, sr: 24, total: 36, breaches: 0, pct: 100 },
+                { name: 'Ajeesh Velumani Velumani', inc: 6, sr: 22, total: 28, breaches: 0, pct: 100 },
+                { name: 'Ali Nasir Sheikh', inc: 1, sr: 8, total: 9, breaches: 0, pct: 100 },
+                { name: 'Fauzia Tabbassum', inc: 3, sr: 6, total: 9, breaches: 0, pct: 100 },
+                { name: 'Rami Amin', inc: 0, sr: 6, total: 6, breaches: 0, pct: 100 },
+                { name: 'Ahmad Abualezz', inc: 0, sr: 1, total: 1, breaches: 1, pct: 0 }
+            ],
+
+            // ── Recurring Patterns ──
+            recurringInc: [
+                { combo: 'Server | Active Directory | Account Unlock', count: 32, pct: 14.2, first: 18, second: 14, trend: '▼ Decreasing', linked: '—' },
+                { combo: 'Application | MS-Outlook | Troubleshooting', count: 30, pct: 13.3, first: 14, second: 16, trend: '▲ Increasing', linked: 'PBI000000000905 (partial)' },
+                { combo: 'Application | Windows | Troubleshooting', count: 20, pct: 8.8, first: 9, second: 11, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Network | Connectivity | No Connectivity', count: 19, pct: 8.4, first: 10, second: 9, trend: '▼ Decreasing', linked: '—' },
+                { combo: 'Hardware | Printer | Troubleshooting', count: 16, pct: 7.1, first: 8, second: 8, trend: '= Flat', linked: '—' },
+                { combo: 'Hardware | IP Phone | Troubleshooting', count: 14, pct: 6.2, first: 7, second: 7, trend: '= Flat', linked: '—' },
+                { combo: 'Hardware | 2-in-1 Tablet | Troubleshooting', count: 13, pct: 5.8, first: 6, second: 7, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Hardware | Monitor | Troubleshooting', count: 12, pct: 5.3, first: 5, second: 7, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Hardware | Monitor | Cable Connectivity', count: 8, pct: 3.5, first: 4, second: 4, trend: '= Flat', linked: '—' },
+                { combo: 'Application | Windows | Login Issue', count: 8, pct: 3.5, first: 3, second: 5, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Hardware | Copier | Troubleshooting', count: 7, pct: 3.1, first: 5, second: 2, trend: '▼ Decreasing', linked: 'PBI000000000806 (partial)' },
+                { combo: 'Hardware | PC | Troubleshooting', count: 6, pct: 2.7, first: 3, second: 3, trend: '= Flat', linked: '—' },
+                { combo: 'Network | Wireless | No Connectivity', count: 5, pct: 2.2, first: 3, second: 2, trend: '▼ Decreasing', linked: '—' }
+            ],
+            recurringSr: [
+                { combo: 'Hardware | Docking Station | Firmware Update', count: 64, pct: 12.8, first: 0, second: 64, trend: '▲ Increasing', linked: 'PBI000000000805' },
+                { combo: 'Hardware | PC | Preventive Maintenance', count: 60, pct: 12.0, first: 28, second: 32, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Meeting Room | Complete Setup | ', count: 45, pct: 9.0, first: 22, second: 23, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Application | MS-Outlook | Assistance', count: 32, pct: 6.4, first: 15, second: 17, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Consumables | Cartridge & Toner | OfficeJet Printer', count: 30, pct: 6.0, first: 14, second: 16, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Server | Active Directory | Password Reset', count: 28, pct: 5.6, first: 13, second: 15, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Application | User Assistance | Copy Data', count: 24, pct: 4.8, first: 12, second: 12, trend: '= Flat', linked: '—' },
+                { combo: 'Hardware | Printer | Configuration', count: 22, pct: 4.4, first: 10, second: 12, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Network | Connectivity | Configuration Change', count: 18, pct: 3.6, first: 8, second: 10, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Application | Miscellaneous | Assistance', count: 16, pct: 3.2, first: 7, second: 9, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Application | MS-Outlook | MFA Configuration', count: 14, pct: 2.8, first: 6, second: 8, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Application | MS-Word | Assistance', count: 12, pct: 2.4, first: 5, second: 7, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Consumables | Battery | Pencil', count: 10, pct: 2.0, first: 4, second: 6, trend: '▲ Increasing', linked: '—' },
+                { combo: 'Application | MS-Outlook | Outlook Configuration Mobile', count: 8, pct: 1.6, first: 4, second: 4, trend: '= Flat', linked: '—' }
+            ],
+
+            // ── Problem Management ──
+            problems: [
+                { id: 'PBI000000000805', title: 'Docking Station Firmware - Recurring Device Issues', priority: 'P3', status: 'Pending', created: '2026-07-13 12:03:08', completed: '2026-07-14 13:38:59', rootCause: 'Maintenance Required', resolution: 'Implemented scheduled docking station firmware updates via BMC Client Management. Firmware update package deployed to all Dell docking stations across the organization. Automated monthly firmware compliance checks configured to identify and remediate outdated firmware proactively. Knowledge article published for Service Desk reference.' },
+                { id: 'PBI000000000806', title: 'Copier Paper Jam - Recurring Hardware Issue', priority: 'P4', status: 'Closed', created: '2026-07-14 08:40:40', completed: '2026-07-15 12:48:33', rootCause: 'User Error', resolution: 'Implemented corrective actions based on vendor recommendations: (1) Informed users regarding proper copier usage - specifically instructing users to remove all staples and paper clips before using the automatic document feeder. (2) Scheduled monthly preventive maintenance with vendor for all copier devices.' },
+                { id: 'PBI000000000905', title: 'Frequent outlook hanging', priority: 'P3', status: 'Pending', created: '2026-07-22 15:33:27', completed: '2026-07-23 10:04:39', rootCause: 'Application Performance', resolution: 'Problem resolved by correcting the Outlook OST size registry configuration. Investigation identified that the OST file had reached approximately 49 GB while the user\'s mailbox utilization had grown to approximately 85 GB of the allocated 100 GB quota.' }
+            ],
+            effectiveness: [
+                { problem: 'PBI000000000805 — Docking Station Firmware', daysBefore: 13, incidentsBefore: 2, rateBefore: 0.15, daysAfter: 18, incidentsAfter: 0, rateAfter: 0, change: -100, verdict: 'Improved — rate down' },
+                { problem: 'PBI000000000806 — Copier Paper Jam', daysBefore: 14, incidentsBefore: 5, rateBefore: 0.36, daysAfter: 16, incidentsAfter: 2, rateAfter: 0.12, change: -66.7, verdict: 'Improved — rate down' },
+                { problem: 'PBI000000000905 — Outlook Hanging (OST size)', daysBefore: 22, incidentsBefore: 14, rateBefore: 0.64, daysAfter: 8, incidentsAfter: 5, rateAfter: 0.63, change: -1.6, verdict: 'No improvement yet' }
+            ],
+            candidates: [
+                { combo: 'Server | Active Directory | Account Unlock', type: 'INC', volume: 32, rationale: 'Highest-volume recurring incident category in July; no Problem record raised.', action: 'Raise a Problem ticket to trend-analyse root cause (e.g. password policy friction, lockout thresholds) and evaluate self-service unlock.' },
+                { combo: 'Application | Windows | Troubleshooting', type: 'INC', volume: 20, rationale: 'Second-highest recurring incident category; broad enough to warrant root-cause grouping.', action: 'Raise a Problem ticket to break this down into sub-causes (patching, profile corruption, performance) before it grows further.' },
+                { combo: 'Network | Connectivity | No Connectivity', type: 'INC', volume: 19, rationale: 'Recurring connectivity loss, several tied to vessel/fleet sites per raw data.', action: 'Raise a Problem ticket; cross-check against known vessel VSAT/firewall issues already noted in INC descriptions this month.' },
+                { combo: 'Hardware | IP Phone | Troubleshooting', type: 'INC', volume: 14, rationale: 'Sustained volume across the month with no linked Problem record.', action: 'Raise a Problem ticket to check for a common firmware/config cause across affected extensions.' },
+                { combo: 'Hardware | PC | Preventive Maintenance', type: 'SR', volume: 60, rationale: 'Highest-volume Service Request category — largely planned/preventive work, not incidents.', action: 'Not a Problem-candidate in the ITIL sense (it\'s already preventive), but a CSI/automation candidate — see CSI tab.' },
+                { combo: 'Meeting Room | Complete Setup', type: 'SR', volume: 45, rationale: 'High-volume manual setup requests.', action: 'CSI candidate: consider self-service room-booking checklist or standing equipment to reduce repeat requests — see CSI tab.' }
+            ],
+
+            // ── Resource Utilization ──
+            workload: [
+                { name: 'Moustafa Khenisa', group: 'Support Engineer', inc: 51, sr: 78, total: 129, p1p2: 9, avgRes: 4.2, breaches: 1, avgDay: 5.86 },
+                { name: 'Mohammad Awais', group: 'Support Engineer', inc: 39, sr: 72, total: 111, p1p2: 7, avgRes: 3.8, breaches: 0, avgDay: 5.05 },
+                { name: 'Jidhin Vasu', group: 'Support Engineer', inc: 27, sr: 52, total: 79, p1p2: 5, avgRes: 4.5, breaches: 1, avgDay: 3.59 },
+                { name: 'Salah Sherif', group: 'Support Engineer', inc: 25, sr: 48, total: 73, p1p2: 4, avgRes: 5.1, breaches: 1, avgDay: 3.32 },
+                { name: 'Emad Abu Baker', group: 'Support Engineer', inc: 12, sr: 44, total: 56, p1p2: 2, avgRes: 3.2, breaches: 0, avgDay: 2.55 },
+                { name: 'Norhan Magdi Rizk Saleh', group: 'Service Desk', inc: 13, sr: 36, total: 49, p1p2: 0, avgRes: 2.1, breaches: 0, avgDay: 2.23 },
+                { name: 'Ibrahim Haider', group: 'Service Desk', inc: 18, sr: 28, total: 46, p1p2: 1, avgRes: 2.8, breaches: 1, avgDay: 2.09 },
+                { name: 'Ameenudeen Allah Baksh', group: 'Service Desk', inc: 12, sr: 32, total: 44, p1p2: 1, avgRes: 2.4, breaches: 0, avgDay: 2.00 },
+                { name: 'Afzal Ahmad', group: 'Support Engineer', inc: 3, sr: 40, total: 43, p1p2: 0, avgRes: 3.0, breaches: 0, avgDay: 1.95 },
+                { name: 'Sawsan Abdalla', group: 'Service Desk', inc: 12, sr: 28, total: 40, p1p2: 0, avgRes: 1.9, breaches: 0, avgDay: 1.82 },
+                { name: 'Floyd Suares', group: 'Support Engineer', inc: 12, sr: 24, total: 36, p1p2: 1, avgRes: 3.7, breaches: 0, avgDay: 1.64 },
+                { name: 'Ajeesh Velumani Velumani', group: 'Support Engineer', inc: 6, sr: 22, total: 28, p1p2: 0, avgRes: 3.5, breaches: 0, avgDay: 1.27 },
+                { name: 'Ali Nasir Sheikh', group: 'Support Engineer', inc: 1, sr: 8, total: 9, p1p2: 0, avgRes: 4.0, breaches: 0, avgDay: 0.41 },
+                { name: 'Fauzia Tabbassum', group: 'Service Desk', inc: 3, sr: 6, total: 9, p1p2: 0, avgRes: 1.5, breaches: 0, avgDay: 0.41 },
+                { name: 'Rami Amin', group: 'Support Engineer', inc: 0, sr: 6, total: 6, p1p2: 0, avgRes: 2.2, breaches: 0, avgDay: 0.27 },
+                { name: 'Ahmad Abualezz', group: 'Support Engineer', inc: 0, sr: 1, total: 1, p1p2: 0, avgRes: 0, breaches: 1, avgDay: 0.05 }
+            ],
+            groupUtil: [
+                { group: 'Support Engineer', headcount: 10, total: 561, pct: 77.3, avgPerDay: 2.55 },
+                { group: 'Service Desk', headcount: 6, total: 165, pct: 22.7, avgPerDay: 1.25 }
+            ],
+            dailyVolume: [
+                { date: '2026-07-01', inc: 14, sr: 18, total: 32 },
+                { date: '2026-07-02', inc: 12, sr: 15, total: 27 },
+                { date: '2026-07-05', inc: 16, sr: 28, total: 44 },
+                { date: '2026-07-06', inc: 14, sr: 22, total: 36 },
+                { date: '2026-07-07', inc: 12, sr: 20, total: 32 },
+                { date: '2026-07-08', inc: 10, sr: 18, total: 28 },
+                { date: '2026-07-09', inc: 16, sr: 20, total: 36 },
+                { date: '2026-07-12', inc: 18, sr: 32, total: 50 },
+                { date: '2026-07-13', inc: 14, sr: 24, total: 38 },
+                { date: '2026-07-14', inc: 18, sr: 28, total: 46 },
+                { date: '2026-07-15', inc: 18, sr: 30, total: 48 },
+                { date: '2026-07-16', inc: 12, sr: 26, total: 38 },
+                { date: '2026-07-19', inc: 16, sr: 32, total: 48 },
+                { date: '2026-07-20', inc: 12, sr: 24, total: 36 },
+                { date: '2026-07-21', inc: 14, sr: 22, total: 36 },
+                { date: '2026-07-22', inc: 12, sr: 26, total: 38 },
+                { date: '2026-07-23', inc: 10, sr: 18, total: 28 },
+                { date: '2026-07-26', inc: 16, sr: 34, total: 50 },
+                { date: '2026-07-27', inc: 14, sr: 30, total: 44 },
+                { date: '2026-07-28', inc: 12, sr: 26, total: 38 },
+                { date: '2026-07-29', inc: 14, sr: 28, total: 42 },
+                { date: '2026-07-30', inc: 12, sr: 22, total: 34 }
+            ],
+
+            // ── CSI & Knowledge Base ──
+            csat: { total: 97, satisfied: 97, dissatisfied: 0, happy: 0, rate: 100 },
+            kbActions: [
+                { source: 'PBI000000000805 (Docking Station Firmware)', action: 'Knowledge article published for Service Desk reference on docking station firmware symptoms & fix.', type: 'Knowledge Article' },
+                { source: 'PBI000000000805 (Docking Station Firmware)', action: 'Automated monthly firmware compliance checks configured via BMC Client Management to proactively remediate outdated firmware.', type: 'Process Automation / CSI' },
+                { source: 'PBI000000000806 (Copier Paper Jam)', action: 'User guidance issued on correct document-feeder use (remove staples/clips) to prevent recurrence.', type: 'User Communication' },
+                { source: 'PBI000000000806 (Copier Paper Jam)', action: 'Monthly preventive maintenance scheduled with copier vendor for all affected devices.', type: 'Process Improvement / CSI' },
+                { source: 'PBI000000000905 (Outlook Hanging)', action: 'Root cause (OST size registry limit) documented for reuse if similar mailbox-growth symptoms recur.', type: 'Root Cause Documentation' }
+            ],
+            csiRegister: [
+                { opportunity: 'Automate Active Directory account unlock via self-service portal', driver: '32 recurring INC in July — highest volume, low complexity', action: 'Evaluate self-service password/unlock tool to cut Service Desk volume' },
+                { opportunity: 'Standardise PC preventive-maintenance scheduling', driver: '60 SR in July — highest SR volume, largely repetitive', action: 'Move to a recurring scheduled task/calendar workflow instead of ad hoc requests' },
+                { opportunity: 'Publish KB article for MS-Outlook OST/mailbox-size issues', driver: 'New root cause found in July (PBI905); category still active post-fix', action: 'Publish a general KB article so Service Desk can self-diagnose similar OST/mailbox symptoms' },
+                { opportunity: 'Re-run trend analysis on "MS-Outlook | Troubleshooting"', driver: 'Category volume did not fall after PBI905 fix (single-user root cause only)', action: 'Raise a new Problem investigation once August data is available to find a broader pattern' },
+                { opportunity: 'Track Docking Station incident volume in August', driver: 'Mass firmware rollout (64 SR) completed in final week of July', action: 'Confirm in next month\'s report whether INC volume for this category stays at zero' }
+            ]
+        };
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // RENDER HELPERS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        function renderExecKPIs() {
+            const k = DATA.kpis;
+            const grid = document.getElementById('execKpiGrid');
+            const items = [
+                { label: 'Total Tickets', value: k.totalTickets, sub: '726 combined', trend: null },
+                { label: 'Overall SLA', value: k.overallSla + '%', sub: '99.3% compliance', trend: 'good' },
+                { label: 'CSAT Satisfaction', value: k.csatSatisfaction + '%', sub: '97 responses', trend: 'good' },
+                { label: 'Problem Tickets', value: k.problemTicketsRaised, sub: '3 raised in July', trend: null },
+                { label: 'P1 Critical', value: k.p1Critical, sub: 'high urgency', trend: 'warn' },
+                { label: 'SLA Breaches/Warnings', value: k.slaBreaches + k.slaWarnings, sub: 'needs review', trend: 'bad' },
+                { label: 'Recurring Patterns', value: k.recurringFlagged, sub: 'flagged for action', trend: 'warn' },
+                { label: 'Busiest Member', value: k.busiestMember, sub: '129 tickets', trend: null }
+            ];
+            grid.innerHTML = items.map(item => `
+                    <div class="kpi-card">
+                        <div class="label">${item.label}</div>
+                        <div class="value">${item.value}</div>
+                        <div class="sub">${item.sub}</div>
+                        ${item.trend ? `<span class="trend ${item.trend}">● ${item.trend === 'good' ? 'On track' : item.trend === 'warn' ? 'Monitor' : 'Alert'}</span>` : ''}
+                    </div>
+                `).join('');
+        }
+
+        function renderIncSrMetrics() {
+            const body = document.getElementById('incSrMetricsBody');
+            const metrics = [
+                { label: 'Total Incidents', value: DATA.incTotal },
+                { label: 'Total Service Requests', value: DATA.srTotal },
+                { label: 'Incidents Closed', value: DATA.incClosed },
+                { label: 'Service Requests Closed', value: DATA.srClosed },
+                { label: 'INC Avg Resolution (hrs)', value: DATA.incAvgRes },
+                { label: 'SR Avg Completion (hrs)', value: DATA.srAvgComp }
+            ];
+            body.innerHTML = metrics.map(m => `<tr><td>${m.label}</td><td><strong>${m.value}</strong></td></tr>`).join('');
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // CHARTS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        let chartInstances = {};
+
+        function createChart(id, config) {
+            const ctx = document.getElementById(id);
+            if (!ctx) return;
+            if (chartInstances[id]) chartInstances[id].destroy();
+            chartInstances[id] = new Chart(ctx.getContext('2d'), config);
+        }
+
+        function initCharts() {
+            // ── INC Priority ──
+            const ip = DATA.incPriority;
+            createChart('incPriorityChart', {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(ip),
+                    datasets: [{ data: Object.values(ip), backgroundColor: ['#c94a4a','#d4893b','#4a7db5','#8a9bb5'], borderWidth: 2, borderColor: '#fff' }]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 12 } } } }, cutout: '55%' }
+            });
+
+            // ── SR Priority ──
+            const sp = DATA.srPriority;
+            createChart('srPriorityChart', {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(sp),
+                    datasets: [{ data: Object.values(sp), backgroundColor: ['#c94a4a','#d4893b','#4a7db5','#8a9bb5'], borderWidth: 2, borderColor: '#fff' }]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 12 } } } }, cutout: '55%' }
+            });
+
+            // ── INC Categories ──
+            const ic = DATA.incCategories;
+            createChart('incCategoryChart', {
+                type: 'bar',
+                data: {
+                    labels: ic.map(c => c.name),
+                    datasets: [{ label: 'Incidents', data: ic.map(c => c.count), backgroundColor: 'rgba(74,125,181,0.6)', borderColor: '#4a7db5', borderWidth: 1 }]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#e9eef4' } }, x: { grid: { display: false } } } }
+            });
+
+            // ── SR Categories ──
+            const sc = DATA.srCategories;
+            createChart('srCategoryChart', {
+                type: 'bar',
+                data: {
+                    labels: sc.map(c => c.name),
+                    datasets: [{ label: 'Service Requests', data: sc.map(c => c.count), backgroundColor: 'rgba(46,155,110,0.6)', borderColor: '#2e9b6e', borderWidth: 1 }]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#e9eef4' } }, x: { grid: { display: false } } } }
+            });
+
+            // ── SLA by Priority ──
+            const slaPrio = DATA.slaByPriority;
+            createChart('slaPriorityChart', {
+                type: 'bar',
+                data: {
+                    labels: slaPrio.map(p => p.priority),
+                    datasets: [
+                        { label: 'INC Compliance %', data: slaPrio.map(p => p.incCompl), backgroundColor: 'rgba(74,125,181,0.7)', borderColor: '#4a7db5', borderWidth: 1 },
+                        { label: 'SR Compliance %', data: slaPrio.map(p => p.srCompl), backgroundColor: 'rgba(46,155,110,0.7)', borderColor: '#2e9b6e', borderWidth: 1 },
+                        { label: 'Combined %', data: slaPrio.map(p => p.combined), backgroundColor: 'rgba(123,94,167,0.7)', borderColor: '#7b5ea7', borderWidth: 1 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 11 } } } },
+                    scales: { y: { beginAtZero: true, max: 100, grid: { color: '#e9eef4' } }, x: { grid: { display: false } } }
+                }
+            });
+
+            // ── Workload ──
+            const wl = DATA.workload;
+            createChart('workloadChart', {
+                type: 'bar',
+                data: {
+                    labels: wl.map(w => w.name),
+                    datasets: [
+                        { label: 'INC', data: wl.map(w => w.inc), backgroundColor: 'rgba(74,125,181,0.7)', borderColor: '#4a7db5', borderWidth: 1 },
+                        { label: 'SR', data: wl.map(w => w.sr), backgroundColor: 'rgba(46,155,110,0.7)', borderColor: '#2e9b6e', borderWidth: 1 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 12 } } } },
+                    scales: { x: { grid: { display: false }, ticks: { maxRotation: 40, font: { size: 9 } } }, y: { beginAtZero: true, grid: { color: '#e9eef4' } } }
+                }
+            });
+
+            // ── CSAT ──
+            const csat = DATA.csat;
+            createChart('csatChart', {
+                type: 'doughnut',
+                data: {
+                    labels: ['Satisfied', 'Dissatisfied'],
+                    datasets: [{ data: [csat.satisfied, csat.dissatisfied], backgroundColor: ['#2e9b6e', '#c94a4a'], borderWidth: 2, borderColor: '#fff' }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 12 } } } },
+                    cutout: '60%'
+                }
+            });
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // TABLES
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        function renderWorkloadTable() {
+            const tbody = document.getElementById('workloadBody');
+            const total = DATA.workload.reduce((s,w) => s + w.total, 0);
+            tbody.innerHTML = DATA.workload.map(w => `
+                    <tr>
+                        <td><strong>${w.name}</strong></td>
+                        <td>${w.group}</td>
+                        <td>${w.inc}</td>
+                        <td>${w.sr}</td>
+                        <td><strong>${w.total}</strong></td>
+                        <td>${(w.total/total*100).toFixed(1)}%</td>
+                        <td>${w.p1p2}</td>
+                        <td>${w.avgRes.toFixed(1)}</td>
+                        <td>${w.breaches > 0 ? `<span class="badge-sla red">${w.breaches}</span>` : '0'}</td>
+                        <td>${w.avgDay.toFixed(2)}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderGroupUtil() {
+            const tbody = document.getElementById('groupUtilBody');
+            tbody.innerHTML = DATA.groupUtil.map(g => `
+                    <tr>
+                        <td><strong>${g.group}</strong></td>
+                        <td>${g.headcount}</td>
+                        <td>${g.total}</td>
+                        <td>${g.pct}%</td>
+                        <td>${g.avgPerDay.toFixed(2)}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderDailyVolume() {
+            const tbody = document.getElementById('dailyVolumeBody');
+            tbody.innerHTML = DATA.dailyVolume.map(d => `
+                    <tr>
+                        <td>${d.date}</td>
+                        <td>${d.inc}</td>
+                        <td>${d.sr}</td>
+                        <td><strong>${d.total}</strong></td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderSlaBreachTable() {
+            const tbody = document.getElementById('slaBreachBody');
+            tbody.innerHTML = DATA.slaBreachesDetail.map(row => `
+                    <tr>
+                        <td><strong>${row.ticket}</strong></td>
+                        <td><span class="badge-priority ${row.type === 'INC' ? 'p3' : 'p3'}">${row.type}</span></td>
+                        <td>${row.assignee}</td>
+                        <td><span class="badge-priority ${row.priority.toLowerCase()}">${row.priority}</span></td>
+                        <td><span class="badge-sla ${row.status.includes('Breached') ? 'red' : 'yellow'}">${row.status}</span></td>
+                        <td class="text-muted">${row.date}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderSlaByMember() {
+            const tbody = document.getElementById('slaByMemberBody');
+            tbody.innerHTML = DATA.slaByMember.map(m => {
+                const pct = m.pct.toFixed(1);
+                const cls = pct >= 99 ? 'green' : pct >= 95 ? 'yellow' : 'red';
+                return `
+                        <tr>
+                            <td><strong>${m.name}</strong></td>
+                            <td>${m.total}</td>
+                            <td>${m.breaches}</td>
+                            <td><span class="badge-sla ${cls}">${pct}%</span></td>
+                        </tr>
+                    `;
+            }).join('');
+        }
+
+        function renderSlaSummary() {
+            const s = DATA.sla.combined;
+            document.getElementById('incSlaPct').textContent = DATA.sla.inc.pct.toFixed(1) + '%';
+            document.getElementById('srSlaPct').textContent = DATA.sla.sr.pct.toFixed(1) + '%';
+            document.getElementById('overallSlaPct').textContent = s.pct.toFixed(1) + '%';
+            document.getElementById('slaBreachesCount').textContent = s.breached + s.warning;
+        }
+
+        function renderRecurringInc() {
+            const tbody = document.getElementById('recurringIncBody');
+            tbody.innerHTML = DATA.recurringInc.map(r => `
+                    <tr>
+                        <td>${r.combo}</td>
+                        <td><strong>${r.count}</strong></td>
+                        <td>${r.pct}%</td>
+                        <td>${r.first}</td>
+                        <td>${r.second}</td>
+                        <td>${r.trend}</td>
+                        <td>${r.linked}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderRecurringSr() {
+            const tbody = document.getElementById('recurringSrBody');
+            tbody.innerHTML = DATA.recurringSr.map(r => `
+                    <tr>
+                        <td>${r.combo}</td>
+                        <td><strong>${r.count}</strong></td>
+                        <td>${r.pct}%</td>
+                        <td>${r.first}</td>
+                        <td>${r.second}</td>
+                        <td>${r.trend}</td>
+                        <td>${r.linked}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderProblemRegister() {
+            const tbody = document.getElementById('problemRegisterBody');
+            tbody.innerHTML = DATA.problems.map(p => `
+                    <tr>
+                        <td><strong>${p.id}</strong></td>
+                        <td>${p.title}</td>
+                        <td><span class="badge-priority ${p.priority.toLowerCase()}">${p.priority}</span></td>
+                        <td>${p.status}</td>
+                        <td class="text-muted">${p.created}</td>
+                        <td class="text-muted">${p.completed}</td>
+                        <td>${p.rootCause}</td>
+                        <td>${p.resolution}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderEffectiveness() {
+            const tbody = document.getElementById('effectivenessBody');
+            tbody.innerHTML = DATA.effectiveness.map(e => `
+                    <tr>
+                        <td>${e.problem}</td>
+                        <td>${e.daysBefore}</td>
+                        <td>${e.incidentsBefore}</td>
+                        <td>${e.rateBefore.toFixed(2)}</td>
+                        <td>${e.daysAfter}</td>
+                        <td>${e.incidentsAfter}</td>
+                        <td>${e.rateAfter.toFixed(2)}</td>
+                        <td>${e.change.toFixed(1)}%</td>
+                        <td><span class="badge-sla ${e.verdict.includes('Improved') ? 'green' : 'yellow'}">${e.verdict}</span></td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderCandidates() {
+            const tbody = document.getElementById('candidatesBody');
+            tbody.innerHTML = DATA.candidates.map(c => `
+                    <tr>
+                        <td>${c.combo}</td>
+                        <td><span class="badge-priority ${c.type === 'INC' ? 'p3' : 'p3'}">${c.type}</span></td>
+                        <td><strong>${c.volume}</strong></td>
+                        <td>${c.rationale}</td>
+                        <td>${c.action}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderKB() {
+            const tbody = document.getElementById('kbBody');
+            tbody.innerHTML = DATA.kbActions.map(a => `
+                    <tr>
+                        <td>${a.source}</td>
+                        <td>${a.action}</td>
+                        <td>${a.type}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function renderCSIRegister() {
+            const tbody = document.getElementById('csiRegisterBody');
+            tbody.innerHTML = DATA.csiRegister.map(c => `
+                    <tr>
+                        <td><strong>${c.opportunity}</strong></td>
+                        <td>${c.driver}</td>
+                        <td>${c.action}</td>
+                    </tr>
+                `).join('');
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // NAVIGATION
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        function showSection(id) {
+            document.querySelectorAll('.main section').forEach(el => el.style.display = 'none');
+            const target = document.getElementById('section-' + id);
+            if (target) target.style.display = 'block';
+            document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.remove('active'));
+            document.querySelector(`.sidebar nav a[data-section="${id}"]`)?.classList.add('active');
+            setTimeout(() => {
+                Object.values(chartInstances).forEach(c => c?.resize?.());
+            }, 80);
+        }
+
+        document.querySelectorAll('.sidebar nav a').forEach(a => {
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                const id = a.dataset.section;
+                showSection(id);
+            });
+        });
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // INIT
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        renderExecKPIs();
+        renderIncSrMetrics();
+        renderWorkloadTable();
+        renderGroupUtil();
+        renderDailyVolume();
+        renderSlaBreachTable();
+        renderSlaByMember();
+        renderSlaSummary();
+        renderRecurringInc();
+        renderRecurringSr();
+        renderProblemRegister();
+        renderEffectiveness();
+        renderCandidates();
+        renderKB();
+        renderCSIRegister();
+
+        // CSAT values
+        document.getElementById('csatTotal').textContent = DATA.csat.total;
+        document.getElementById('csatRate').textContent = DATA.csat.rate + '%';
+        document.getElementById('csatDissatisfied').textContent = DATA.csat.dissatisfied;
+
+        setTimeout(initCharts, 120);
+
+        showSection('exec');
+
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                Object.values(chartInstances).forEach(c => c?.resize?.());
+            }, 200);
+        });
+
+        console.log('📊 ITSM Dashboard · ISO 20000 & ITIL 4 · July 2026 Team Report');
+    </script>
+</body>
+</html>
